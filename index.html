@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GuardianAI — Supervisor Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<style>
+:root{
+  --ink:#0B1220; --ink-2:#1C2733; --panel:#111A26; --panel-2:#18232F;
+  --line:#E3E8EF; --line-dark:#243040;
+  --bg:#F4F6F9; --card:#FFFFFF;
+  --t1:#0F172A; --t2:#475569; --t3:#8494A8;
+  --brand:#0E9F6E; --brand-dark:#087A54; --brand-soft:#E6F6EF;
+  --danger:#DC2626; --danger-soft:#FEF2F2; --danger-line:#FBD5D5;
+  --warn:#D97706; --warn-soft:#FFF8EB;
+  --info:#2563EB; --info-soft:#EFF6FF;
+  --r:10px; --shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.04);
+  --shadow-lg:0 12px 32px rgba(16,24,40,.12);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--t1);-webkit-font-smoothing:antialiased;line-height:1.5}
+button{font-family:inherit;cursor:pointer;border:none;background:none;transition:all .15s ease}
+input,select,textarea{font-family:inherit;font-size:14px}
+.mono{font-family:'JetBrains Mono',monospace;font-variant-ligatures:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 16px;border-radius:var(--r);font-size:14px;font-weight:500}
+.btn-primary{background:var(--brand);color:#fff}
+.btn-primary:hover{background:var(--brand-dark)}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-danger:hover{filter:brightness(.92)}
+.btn-ghost{background:#fff;color:var(--t1);border:1px solid var(--line)}
+.btn-ghost:hover{background:#F8FAFC;border-color:#CBD5E1}
+.btn-blue{background:var(--info);color:#fff}
+.btn-blue:hover{filter:brightness(.92)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
+.field{width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:var(--r);outline:none;background:#fff;transition:all .15s}
+.field:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(14,159,110,.12)}
+.navbtn{width:100%;display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:8px;color:#94A9C0;font-size:13.5px;font-weight:500;text-align:left}
+.navbtn:hover{background:rgba(255,255,255,.05);color:#E2E8F0}
+.navbtn.on{background:rgba(14,159,110,.14);color:#fff;box-shadow:inset 2px 0 0 var(--brand)}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#5A6B80;padding:0 12px;margin:20px 0 8px}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:11.5px;font-weight:600;letter-spacing:.01em}
+.row{display:flex;align-items:center}
+.anno{position:relative;outline:2px dashed rgba(37,99,235,.55);outline-offset:3px;border-radius:6px}
+.anno::after{content:attr(data-note);position:absolute;top:-11px;left:10px;background:var(--info);color:#fff;font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:20px;white-space:nowrap;z-index:5;box-shadow:var(--shadow)}
+.fade{animation:fade .28s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.toast{position:fixed;bottom:24px;right:24px;z-index:99;background:var(--ink);color:#fff;padding:13px 18px;border-radius:12px;box-shadow:var(--shadow-lg);font-size:13.5px;font-weight:500;animation:fade .3s ease;max-width:340px}
+.tl{position:relative;padding-left:22px;padding-bottom:18px;border-left:2px solid var(--line)}
+.tl:last-child{border-left-color:transparent;padding-bottom:0}
+.tl::before{content:'';position:absolute;left:-7px;top:3px;width:12px;height:12px;border-radius:50%;background:var(--brand);border:2px solid #fff;box-shadow:0 0 0 1px var(--line)}
+.tl.hold::before{background:var(--warn)}
+.tl.human::before{background:var(--info)}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:#C6D0DC;border-radius:9px}
+::-webkit-scrollbar-track{background:transparent}
+@media(max-width:900px){.sb{display:none!important}.main{margin-left:0!important;padding:18px!important}.g2,.g3,.g4{grid-template-columns:1fr!important}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const {useState,useEffect,useRef}=React;
+
+const SEED=[
+ {id:'INC-2091',zone:'Dock 3',type:'Unauthorized entry',conf:.94,sev:'Critical',time:'09:41:23',state:'escalated',
+  why:'Person detected in restricted robot corridor. No badge scan at Dock 3 entrance in the preceding 4-minute window. Dwell time 38s within 6m of two active AMRs.',
+  taken:['Locked Dock 3 bay doors','Notified on-site guard M. Chen','Slowed AMR-14 and AMR-22 to 0.3 m/s','Restricted Zone D badge access'],
+  held:['Sound facility-wide alarm','Initiate full-floor stoppage','Dispatch emergency responder']},
+ {id:'INC-2090',zone:'North Perimeter',type:'Badge–presence conflict',conf:.62,sev:'Medium',time:'09:40:15',state:'resolved',
+  why:'Camera shows presence in restricted zone but access-control returns a valid badge for the window. Conflicting evidence — agent took precautionary action only.',
+  taken:['Heightened monitoring on Zone A','Logged conflict for supervisor review'],held:[]},
+ {id:'INC-2089',zone:'Cold Storage',type:'Extended presence',conf:.87,sev:'High',time:'09:39:42',state:'resolved',
+  why:'Authorized technician exceeded expected maintenance window by 21 minutes against the D1 zone baseline.',
+  taken:['Notified shift supervisor','Slowed nearby AMR-07'],held:[]},
+ {id:'INC-2088',zone:'Loading Bay 2',type:'Movement anomaly',conf:.51,sev:'Low',time:'09:38:51',state:'dismissed',
+  why:'Low-confidence motion signature. Flagged "needs review" rather than acted on, per policy threshold.',
+  taken:['Logged for model review'],held:[]}
+];
+
+const SEV={Critical:{c:'#B91C1C',bg:'#FEF2F2'},High:{c:'#DC2626',bg:'#FEF2F2'},Medium:{c:'#B45309',bg:'#FFF8EB'},Low:{c:'#0E9F6E',bg:'#E6F6EF'}};
+const ZONES=[{n:'Dock 3',s:'intrusion · locked',ok:0},{n:'North Perimeter',s:'clear',ok:1},{n:'Cold Storage',s:'clear · 4°C',ok:1},{n:'Loading Bay 2',s:'clear',ok:1},{n:'Server Room',s:'clear',ok:1},{n:'Main Gate',s:'clear',ok:1}];
+const POLICIES=[
+ {t:'Low',d:'Continue monitoring, log the event',trig:'Confidence < 60% or authorized presence confirmed',esc:'Never — stays in the agent loop',c:'#0E9F6E'},
+ {t:'Medium',d:'Notify on-site security, restrict zone badge access',trig:'Confidence 60–80%, reversible actions only',esc:'Only when evidence conflicts',c:'#D97706'},
+ {t:'High',d:'Restrict zone, slow nearby robots, notify security',trig:'Confidence > 80%, no valid authorization',esc:'Unless confidence > 95% and action is reversible',c:'#DC2626'},
+ {t:'Critical',d:'Facility alarm, full stoppage, emergency dispatch',trig:'Any irreversible or facility-impacting action',esc:'Always — human approval required',c:'#B91C1C'}];
+
+function Ico({d,s=17}){return <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d={d}/></svg>}
+const I={
+ grid:"M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z",
+ pulse:"M22 12h-4l-3 9L9 3l-3 9H2",
+ list:"M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
+ bolt:"M13 2 3 14h9l-1 8 10-12h-9z",
+ warn:"M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01",
+ doc:"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8",
+ slid:"M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6",
+ out:"M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9",
+ back:"M19 12H5M12 19l-7-7 7-7",
+ ok:"M20 6 9 17l-5-5",
+ x:"M18 6 6 18M6 6l12 12",
+ dl:"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3",
+ eye:"M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
+ shield:"M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
+ pause:"M10 4H6v16h4zM18 4h-4v16h4z",
+ clock:"M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2"};
+
+function App(){
+ const [scr,setScr]=useState('login');
+ const [user,setUser]=useState(null);
+ const [ev,setEv]=useState(SEED);
+ const [sel,setSel]=useState(null);
+ const [log,setLog]=useState([]);
+ const [anno,setAnno]=useState(false);
+ const [toast,setToast]=useState(null);
+ const [email,setEmail]=useState('krish.kukreti@supervisor.ops');
+ const [pw,setPw]=useState('guardian2026');
+ const [mfa,setMfa]=useState('418 902');
+ const [err,setErr]=useState('');
+ const [reason,setReason]=useState('');
+ const [note,setNote]=useState('');
+ const [q,setQ]=useState('');
+ const [fz,setFz]=useState('All zones');
+ const [fs,setFs]=useState('All severities');
+
+ useEffect(()=>{if(!toast)return;const t=setTimeout(()=>setToast(null),3200);return()=>clearTimeout(t)},[toast]);
+ const go=s=>{setScr(s);window.scrollTo(0,0)};
+ const A=n=>anno?{className:'anno','data-note':n}:{};
+
+ const login=e=>{e.preventDefault();
+  if(!email.includes('@')){setErr('Enter a valid work email address.');return}
+  if(!pw){setErr('Enter your password.');return}
+  if(mfa.replace(/\s/g,'').length!==6){setErr('Enter the 6-digit code from your authenticator.');return}
+  setErr('');setUser({name:'Krish Kukreti',role:'Facility Safety Supervisor',fac:'Warehouse B · North Campus',init:'KK'});go('dash')};
+
+ const decide=(inc,kind,txt='')=>{
+  const stamp=new Date().toLocaleTimeString('en-US',{hour12:false});
+  setLog(l=>[{id:inc.id,kind,txt,at:stamp,by:'Krish Kukreti'},...l]);
+  setEv(list=>list.map(x=>x.id===inc.id?{...x,state:kind==='dismiss'?'dismissed':'resolved',outcome:kind,reason:txt,decidedAt:stamp}:x));
+  setSel({...inc,state:kind==='dismiss'?'dismissed':'resolved',outcome:kind,reason:txt,decidedAt:stamp});
+  if(kind==='dismiss'){setToast('Dismissed as false alarm. Event flagged for model review.');go('monitor')}
+  else{setToast(kind==='approve'?'Approved. Held actions executing now.':'Override recorded. Revised actions executing.');go('report')}
+  setReason('')};
+
+ const pending=ev.filter(x=>x.state==='escalated');
+
+ /* ============ LOGIN ============ */
+ if(scr==='login')return(
+  <div style={{minHeight:'100vh',background:'linear-gradient(155deg,#0B1220 0%,#132033 55%,#0E1B2A 100%)',display:'flex',alignItems:'center',justifyContent:'center',padding:22}}>
+   <div style={{width:'100%',maxWidth:412}} className="fade">
+    <div style={{textAlign:'center',marginBottom:26}}>
+     <div style={{width:52,height:52,borderRadius:14,background:'var(--brand)',display:'inline-flex',alignItems:'center',justifyContent:'center',color:'#fff',marginBottom:14}}><Ico d={I.shield} s={26}/></div>
+     <div style={{color:'#fff',fontSize:23,fontWeight:600,letterSpacing:'-.01em'}}>GuardianAI</div>
+     <div style={{color:'#7B8CA3',fontSize:13,marginTop:3}}>Supervisor operations console</div>
+    </div>
+    <form onSubmit={login} style={{background:'#fff',borderRadius:16,padding:'30px 28px',boxShadow:'0 24px 60px rgba(0,0,0,.4)'}}>
+     <div style={{fontSize:16,fontWeight:600,marginBottom:3}}>Sign in</div>
+     <div style={{fontSize:13,color:'var(--t2)',marginBottom:22}}>Authenticated through Amazon Cognito</div>
+     {err&&<div style={{background:'var(--danger-soft)',border:'1px solid var(--danger-line)',color:'#991B1B',padding:'10px 12px',borderRadius:10,fontSize:12.5,marginBottom:16,display:'flex',gap:8}}><Ico d={I.warn} s={15}/><span>{err}</span></div>}
+     <label style={{fontSize:12.5,fontWeight:600,color:'var(--t2)',display:'block',marginBottom:6}}>Work email</label>
+     <input className="field" value={email} onChange={e=>setEmail(e.target.value)} style={{marginBottom:15}}/>
+     <label style={{fontSize:12.5,fontWeight:600,color:'var(--t2)',display:'block',marginBottom:6}}>Password</label>
+     <input className="field" type="password" value={pw} onChange={e=>setPw(e.target.value)} style={{marginBottom:15}}/>
+     <label style={{fontSize:12.5,fontWeight:600,color:'var(--t2)',display:'block',marginBottom:6}}>Authenticator code</label>
+     <input className="field mono" value={mfa} onChange={e=>setMfa(e.target.value)} maxLength={7} style={{marginBottom:18,letterSpacing:'.22em',fontSize:16}}/>
+     <button className="btn btn-primary" style={{width:'100%',padding:12,fontSize:14.5}}>Sign in</button>
+     <div style={{marginTop:18,paddingTop:16,borderTop:'1px solid var(--line)',fontSize:11.5,color:'var(--t3)',lineHeight:1.7}}>
+      <b style={{color:'var(--t2)'}}>Demo walkthrough</b><br/>Credentials are pre-filled — press Sign in. A critical escalation is waiting on the dashboard.</div>
+    </form>
+    <div style={{textAlign:'center',marginTop:20,color:'#5C6E85',fontSize:11.5,lineHeight:1.7}}>
+     MIS 306 · Team 11 · Report 5<br/><b style={{color:'#8FA3BA'}}>Frontend UI/UX Analyst — Krish Kukreti</b></div>
+   </div>
+  </div>);
+
+ /* ============ SHELL ============ */
+ const Nav=({id,icon,label,badge})=>(
+  <button className={'navbtn'+(scr===id?' on':'')} onClick={()=>go(id)}>
+   <Ico d={icon}/><span style={{flex:1}}>{label}</span>
+   {badge>0&&<span style={{background:'var(--danger)',color:'#fff',minWidth:19,height:19,borderRadius:10,fontSize:11,fontWeight:700,display:'grid',placeItems:'center',padding:'0 6px'}}>{badge}</span>}
+  </button>);
+
+ const Shell=({title,sub,exhibit,children,action})=>(
+  <div style={{display:'flex',minHeight:'100vh'}}>
+   <aside className="sb" style={{width:236,background:'var(--panel)',position:'fixed',top:0,bottom:0,left:0,display:'flex',flexDirection:'column',padding:'20px 12px 14px'}}>
+    <div style={{display:'flex',alignItems:'center',gap:10,padding:'0 10px 6px'}}>
+     <div style={{width:32,height:32,borderRadius:9,background:'var(--brand)',display:'grid',placeItems:'center',color:'#fff'}}><Ico d={I.shield} s={17}/></div>
+     <div><div style={{color:'#fff',fontSize:15,fontWeight:600,letterSpacing:'-.01em'}}>GuardianAI</div>
+     <div style={{color:'#5A6B80',fontSize:9.5,fontWeight:600,letterSpacing:'.11em'}}>OPS CONSOLE</div></div>
+    </div>
+    <div style={{flex:1,overflowY:'auto'}}>
+     <div className="eyebrow">Monitoring</div>
+     <Nav id="dash" icon={I.grid} label="Dashboard"/>
+     <Nav id="monitor" icon={I.pulse} label="Live monitor"/>
+     <Nav id="history" icon={I.list} label="Incidents and history"/>
+     <div className="eyebrow">Response</div>
+     <Nav id="response" icon={I.bolt} label="Response center"/>
+     <Nav id="escalations" icon={I.warn} label="Escalations" badge={pending.length}/>
+     <Nav id="report" icon={I.doc} label="Reports"/>
+     <div className="eyebrow">Configure</div>
+     <Nav id="policies" icon={I.slid} label="Response policies"/>
+    </div>
+    <div style={{background:'rgba(14,159,110,.1)',border:'1px solid rgba(14,159,110,.22)',borderRadius:10,padding:'10px 12px',margin:'10px 2px'}}>
+     <div style={{display:'flex',alignItems:'center',gap:7,color:'#34D399',fontSize:12,fontWeight:600}}>
+      <span style={{width:6,height:6,borderRadius:3,background:'#34D399'}}/>Agent online</div>
+     <div style={{color:'#6B8299',fontSize:10.5,marginTop:4,lineHeight:1.5}}>6 zones · model v3.2<br/>128 signals/min</div>
+    </div>
+    <div style={{display:'flex',alignItems:'center',gap:10,padding:'11px 8px 2px',borderTop:'1px solid var(--line-dark)'}}>
+     <div style={{width:31,height:31,borderRadius:16,background:'#2A3A4D',color:'#CBD5E1',display:'grid',placeItems:'center',fontSize:11.5,fontWeight:600}}>{user.init}</div>
+     <div style={{flex:1,minWidth:0}}>
+      <div style={{color:'#E2E8F0',fontSize:12.5,fontWeight:500}}>{user.name}</div>
+      <div style={{color:'#5A6B80',fontSize:10.5,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{user.role}</div></div>
+     <button onClick={()=>{setUser(null);setEv(SEED);setLog([]);go('login')}} style={{color:'#5A6B80',padding:5}} title="Sign out"><Ico d={I.out} s={16}/></button>
+    </div>
+   </aside>
+
+   <main className="main" style={{marginLeft:236,flex:1,padding:'26px 30px 40px',minWidth:0}}>
+    <div className="row" style={{justifyContent:'space-between',gap:16,marginBottom:22,flexWrap:'wrap'}}>
+     <div>
+      {exhibit&&<div style={{fontSize:10.5,fontWeight:600,letterSpacing:'.09em',color:'var(--t3)',marginBottom:5}}>{exhibit}</div>}
+      <h1 style={{fontSize:24,fontWeight:600,letterSpacing:'-.02em'}}>{title}</h1>
+      {sub&&<p style={{color:'var(--t2)',fontSize:13.5,marginTop:4}}>{sub}</p>}
+     </div>
+     <div className="row" style={{gap:9}}>
+      {action}
+      <button onClick={()=>setAnno(!anno)} className="btn btn-ghost" style={{padding:'8px 13px',fontSize:12.5,background:anno?'var(--info-soft)':'#fff',borderColor:anno?'#BFDBFE':'var(--line)',color:anno?'#1D4ED8':'var(--t2)'}}>
+       <span style={{width:26,height:15,borderRadius:8,background:anno?'var(--info)':'#CBD5E1',position:'relative',transition:'all .18s'}}>
+        <span style={{position:'absolute',top:2,left:anno?13:2,width:11,height:11,borderRadius:6,background:'#fff',transition:'all .18s'}}/></span>
+       Annotations</button>
+     </div>
+    </div>
+    <div className="fade">{children}</div>
+    <div style={{marginTop:34,paddingTop:16,borderTop:'1px solid var(--line)',color:'var(--t3)',fontSize:11.5,display:'flex',justifyContent:'space-between',gap:14,flexWrap:'wrap'}}>
+     <span>GuardianAI supervisor console · high-fidelity prototype</span>
+     <span>MIS 306 Team 11 · Report 5 · <b style={{color:'var(--t2)'}}>Frontend UI/UX Analyst — Krish Kukreti</b></span>
+    </div>
+   </main>
+   {toast&&<div className="toast row" style={{gap:10}}><Ico d={I.ok} s={16}/>{toast}</div>}
+  </div>);
+
+ const Stat=({label,val,note,tone})=>(
+  <div className="card" style={{padding:'16px 18px'}}>
+   <div style={{fontSize:12.5,color:'var(--t2)',marginBottom:9}}>{label}</div>
+   <div style={{fontSize:29,fontWeight:600,letterSpacing:'-.03em',color:tone||'var(--t1)',lineHeight:1.1}}>{val}</div>
+   <div style={{fontSize:11.5,color:'var(--t3)',marginTop:6}}>{note}</div>
+  </div>);
+
+ const Sev=({s})=><span className="pill" style={{background:SEV[s].bg,color:SEV[s].c}}>{s}</span>;
+
+ /* ============ DASHBOARD ============ */
+ if(scr==='dash')return(
+  <Shell title="Dashboard" sub={user.fac} exhibit="EXHIBIT 5.2 · HOMEPAGE AND MAIN NAVIGATION">
+   {pending.length>0&&
+    <div {...A('1 · Escalation banner links straight to the approval queue')} style={{background:'var(--danger-soft)',border:'1px solid var(--danger-line)',borderRadius:14,padding:'15px 18px',marginBottom:20,display:'flex',gap:14,alignItems:'flex-start',flexWrap:'wrap'}}>
+     <span style={{color:'var(--danger)',marginTop:2}}><Ico d={I.warn} s={19}/></span>
+     <div style={{flex:1,minWidth:230}}>
+      <div style={{fontWeight:600,fontSize:14.5,color:'#991B1B'}}>{pending[0].id} · {pending[0].type} at {pending[0].zone} is waiting for your approval</div>
+      <div style={{fontSize:13,color:'#B45454',marginTop:3}}>The agent contained the zone and paused {pending[0].held.length} high-impact actions for a human decision.</div>
+     </div>
+     <button className="btn btn-danger" onClick={()=>{setSel(pending[0]);go('escalations')}}>Review now</button>
+    </div>}
+
+   <div className="g4" style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:20}}>
+    <Stat label="Events detected today" val="34" note="▲ 8 vs yesterday"/>
+    <Stat label="Auto-resolved by agent" val="29" note="85% handled without a human" tone="var(--brand)"/>
+    <Stat label="Median response time" val="1.4s" note="▼ 0.3s · target under 60s"/>
+    <Stat label="Escalations pending" val={pending.length} note={pending.length?'Needs your review':'All clear'} tone={pending.length?'var(--danger)':'var(--brand)'}/>
+   </div>
+
+   <div className="g2" style={{display:'grid',gridTemplateColumns:'1.5fr 1fr',gap:18}}>
+    <div className="card" style={{padding:'18px 20px'}}>
+     <div className="row" style={{justifyContent:'space-between',marginBottom:15}}>
+      <h2 style={{fontSize:15,fontWeight:600}}>Agent activity</h2>
+      <span className="pill" style={{background:'var(--brand-soft)',color:'var(--brand-dark)'}}>● Live</span></div>
+     {[['Monitoring 6 zones for anomalies','continuous · 128 signals/min','ok'],
+       ['Escalated INC-2091 to supervisor for approval','critical · 3 actions held','hold'],
+       ['Notified on-site guard M. Chen','SMS + radio · acknowledged 09:41:24','ok'],
+       ['Locked Dock 3 bay doors, restricted Zone D','policy tier: Critical / Intrusion','ok'],
+       ['Classified motion at Dock 3 as unauthorized entry','confidence 0.94 · no valid badge','ok']].map(([a,b,k],i)=>
+      <div key={i} className={'tl '+(k==='hold'?'hold':'')} style={{paddingBottom:i===4?0:16}}>
+       <div style={{fontSize:13.5,fontWeight:500}}>{a}</div>
+       <div className="mono" style={{fontSize:11,color:'var(--t3)',marginTop:3}}>{b}</div></div>)}
+    </div>
+
+    <div>
+     <div className="card" style={{padding:'18px 20px',marginBottom:18}}>
+      <div className="row" style={{justifyContent:'space-between',marginBottom:14}}>
+       <h2 style={{fontSize:15,fontWeight:600}}>Zone status</h2>
+       <span style={{fontSize:11.5,color:'var(--t3)'}}>6 zones</span></div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:9}}>
+       {ZONES.map(z=>
+        <div key={z.n} style={{border:'1px solid '+(z.ok?'var(--line)':'var(--danger-line)'),background:z.ok?'#fff':'var(--danger-soft)',borderRadius:10,padding:'10px 11px'}}>
+         <div className="row" style={{justifyContent:'space-between',gap:6}}>
+          <span style={{fontSize:12.5,fontWeight:500}}>{z.n}</span>
+          <span style={{width:7,height:7,borderRadius:4,background:z.ok?'var(--brand)':'var(--danger)',flexShrink:0}}/></div>
+         <div className="mono" style={{fontSize:10,color:z.ok?'var(--t3)':'#B45454',marginTop:4}}>{z.s}</div></div>)}
+      </div>
+     </div>
+     <div className="card" style={{padding:'18px 20px'}}>
+      <h2 style={{fontSize:15,fontWeight:600,marginBottom:13}}>Recent incidents</h2>
+      {ev.slice(0,3).map(x=>
+       <button key={x.id} onClick={()=>{setSel(x);go('detail')}} style={{width:'100%',textAlign:'left',padding:'10px 0',borderBottom:'1px solid var(--line)',display:'flex',gap:10,alignItems:'center'}}>
+        <div style={{flex:1,minWidth:0}}>
+         <div className="mono" style={{fontSize:11,color:'var(--t3)'}}>{x.id} · {x.time}</div>
+         <div style={{fontSize:13,fontWeight:500,marginTop:2}}>{x.type}</div>
+         <div style={{fontSize:11.5,color:'var(--t2)',marginTop:2}}>{x.zone}</div></div>
+        <Sev s={x.sev}/></button>)}
+      <button onClick={()=>go('history')} className="btn btn-ghost" style={{width:'100%',marginTop:13,fontSize:13}}>View all incidents</button>
+     </div>
+    </div>
+   </div>
+  </Shell>);
+
+ /* ============ LIVE MONITOR ============ */
+ if(scr==='monitor')return(
+  <Shell title="Live monitor" sub="Real-time detection feed — agent process 1.0, detect and classify" exhibit="EXHIBIT 5.3 · LIVE MONITOR">
+   <div className="card" style={{overflow:'hidden'}}>
+    <div className="row" style={{gap:10,padding:'14px 18px',borderBottom:'1px solid var(--line)',flexWrap:'wrap'}}>
+     <input className="field" placeholder="Search zone, type, or incident ID" value={q} onChange={e=>setQ(e.target.value)} style={{flex:1,minWidth:200,fontSize:13}}/>
+     <select className="field" value={fz} onChange={e=>setFz(e.target.value)} style={{width:'auto',fontSize:13}}>
+      {['All zones',...ZONES.map(z=>z.n)].map(z=><option key={z}>{z}</option>)}</select>
+     <span className="pill" style={{background:'var(--brand-soft)',color:'var(--brand-dark)'}}>● Streaming</span>
+    </div>
+    {ev.filter(x=>(fz==='All zones'||x.zone===fz)&&(x.id+x.type+x.zone).toLowerCase().includes(q.toLowerCase())).map((x,i)=>
+     <div key={x.id} {...(i===0?A('2 · Flagged events open the incident detail view'):{})}
+      onClick={()=>{setSel(x);go('detail')}} style={{display:'flex',gap:14,alignItems:'center',padding:'14px 18px',borderBottom:'1px solid var(--line)',cursor:'pointer',background:x.state==='escalated'?'var(--danger-soft)':'#fff',opacity:x.state==='dismissed'?.6:1}}>
+      <span style={{width:8,height:8,borderRadius:4,flexShrink:0,background:x.state==='escalated'?'var(--danger)':x.state==='resolved'?'var(--brand)':'#94A3B8'}}/>
+      <div style={{flex:1,minWidth:0}}>
+       <div className="row" style={{gap:9,flexWrap:'wrap'}}>
+        <span className="mono" style={{fontSize:11.5,color:'var(--t2)'}}>{x.id}</span>
+        <span style={{fontSize:13.5,fontWeight:500}}>{x.type}</span></div>
+       <div className="mono" style={{fontSize:11,color:'var(--t3)',marginTop:3}}>{x.zone} · {x.time} · confidence {x.conf.toFixed(2)}</div></div>
+      <Sev s={x.sev}/>
+      <span style={{fontSize:11.5,color:'var(--t2)',minWidth:98,textAlign:'right'}}>
+       {x.state==='escalated'?'Awaiting approval':x.state==='resolved'?'Resolved':'Dismissed'}</span>
+     </div>)}
+    <div style={{padding:'12px 18px',fontSize:11.5,color:'var(--t3)'}}>
+     Low-confidence detections are labelled <b>needs review</b> and never acted on automatically. A sensor going offline raises a separate data-integrity notice.</div>
+   </div>
+  </Shell>);
+
+ /* ============ INCIDENT DETAIL ============ */
+ if(scr==='detail'&&sel)return(
+  <Shell title="Incident detail" sub={sel.id+' · '+sel.zone} exhibit="EXHIBIT 5.4 · INCIDENT DETAIL"
+   action={<button className="btn btn-ghost" onClick={()=>go('monitor')}><Ico d={I.back} s={15}/>Back</button>}>
+   <div className="g2" style={{display:'grid',gridTemplateColumns:'1.6fr 1fr',gap:18}}>
+    <div>
+     <div className="card" style={{padding:'20px 22px',marginBottom:18}}>
+      <div className="row" style={{justifyContent:'space-between',marginBottom:18,flexWrap:'wrap',gap:10}}>
+       <div><div className="mono" style={{fontSize:11.5,color:'var(--t3)'}}>{sel.id}</div>
+       <div style={{fontSize:18,fontWeight:600,marginTop:3}}>{sel.type}</div></div>
+       <Sev s={sel.sev}/></div>
+      <div className="g4" style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,paddingBottom:18,borderBottom:'1px solid var(--line)'}}>
+       {[['Zone',sel.zone],['Detected',sel.time],['Confidence',sel.conf.toFixed(2)],['Status',sel.state]].map(([k,v])=>
+        <div key={k}><div style={{fontSize:11.5,color:'var(--t3)',marginBottom:4}}>{k}</div>
+        <div style={{fontSize:13.5,fontWeight:500,textTransform:k==='Status'?'capitalize':'none'}}>{v}</div></div>)}
+      </div>
+      <div style={{paddingTop:18}}>
+       <div style={{fontSize:13,fontWeight:600,marginBottom:10}}>Evidence</div>
+       <div style={{background:'#0F1721',borderRadius:10,height:196,display:'grid',placeItems:'center',color:'#5A6B80',marginBottom:14,position:'relative',overflow:'hidden'}}>
+        <div style={{textAlign:'center'}}><Ico d={I.eye} s={26}/><div className="mono" style={{fontSize:11,marginTop:8}}>CAM-{sel.zone.replace(/\D/g,'')||'04'} · restricted zone · {sel.time}</div></div>
+        <span className="pill mono" style={{position:'absolute',top:11,left:11,background:'rgba(220,38,38,.9)',color:'#fff'}}>● REC</span>
+       </div>
+       <div style={{border:'1px solid var(--line)',borderRadius:10,overflow:'hidden'}}>
+        {[['Badge scan at zone entrance',sel.id==='INC-2090'?'Valid badge — B-2214':'No record found',sel.id!=='INC-2090'],
+          ['Zone access permission',sel.id==='INC-2090'?'Authorized':'Unauthorized',sel.id!=='INC-2090'],
+          ['Baseline activity profile (D1)','No scheduled maintenance window',1],
+          ['Proximity to active robots','6.2 m · AMR-14, AMR-22',1]].map(([k,v,bad],i)=>
+         <div key={i} className="row" style={{justifyContent:'space-between',padding:'10px 13px',borderBottom:i<3?'1px solid var(--line)':'none',fontSize:12.5,gap:10}}>
+          <span style={{color:'var(--t2)'}}>{k}</span>
+          <span className="mono" style={{fontWeight:500,color:bad?'var(--danger)':'var(--t1)',fontSize:11.5,textAlign:'right'}}>{v}</span></div>)}
+       </div>
+      </div>
+     </div>
+    </div>
+
+    <div>
+     <div className="card" {...A('3 · The agent shows its reasoning before you decide')} style={{padding:'20px 22px',marginBottom:16}}>
+      <div style={{fontSize:13,fontWeight:600,marginBottom:12}}>Agent classification rationale</div>
+      <p style={{fontSize:13,color:'var(--t2)',lineHeight:1.65,marginBottom:16}}>{sel.why}</p>
+      <div style={{background:'var(--bg)',borderRadius:10,padding:'12px 14px',marginBottom:16}}>
+       <div style={{fontSize:11.5,color:'var(--t3)',marginBottom:5}}>Pre-staged response tier (from D3)</div>
+       <div style={{fontSize:13.5,fontWeight:600,color:SEV[sel.sev].c}}>{sel.sev} / Intrusion</div></div>
+      {sel.state==='escalated'
+       ?<><button className="btn btn-blue" style={{width:'100%',marginBottom:9}} onClick={()=>go('response')}>Continue to response center</button>
+          <button className="btn btn-ghost" style={{width:'100%'}} onClick={()=>decide(sel,'dismiss','Supervisor judged this a false alarm')}>Dismiss as false alarm</button></>
+       :<div style={{background:'var(--brand-soft)',border:'1px solid #BBF0DA',borderRadius:10,padding:'12px 14px',fontSize:12.5,color:'var(--brand-dark)'}}>
+          This incident is closed. Its report is filed in incident history.</div>}
+     </div>
+     <div className="card" style={{padding:'16px 20px'}}>
+      <div style={{fontSize:12.5,fontWeight:600,marginBottom:9}}>Alternative path</div>
+      <p style={{fontSize:12,color:'var(--t2)',lineHeight:1.65}}>Dismissing logs the decision, flags the event for model review, and returns you to the live monitor. No response is executed.</p>
+     </div>
+    </div>
+   </div>
+  </Shell>);
+
+ /* ============ RESPONSE CENTER ============ */
+ if(scr==='response'){
+  const inc=sel&&sel.state==='escalated'?sel:pending[0];
+  if(!inc)return(
+   <Shell title="Response center" sub="Agent process 2.0 — determine operational response" exhibit="EXHIBIT 5.5 · RESPONSE CENTER">
+    <div className="card" style={{padding:52,textAlign:'center'}}>
+     <div style={{color:'var(--brand)',marginBottom:12,display:'inline-block'}}><Ico d={I.ok} s={30}/></div>
+     <div style={{fontSize:16,fontWeight:600}}>No response awaiting review</div>
+     <p style={{color:'var(--t2)',fontSize:13.5,marginTop:6}}>The agent is executing low and medium tier actions autonomously within policy.</p>
+     <button className="btn btn-ghost" style={{marginTop:18}} onClick={()=>go('monitor')}>Open live monitor</button></div>
+   </Shell>);
+  return(
+  <Shell title="Response center" sub={inc.id+' · '+inc.zone} exhibit="EXHIBIT 5.5 · RESPONSE CENTER"
+   action={<button className="btn btn-ghost" onClick={()=>{setSel(inc);go('detail')}}><Ico d={I.back} s={15}/>Back</button>}>
+   <div className="g2" style={{display:'grid',gridTemplateColumns:'1.6fr 1fr',gap:18}}>
+    <div className="card" style={{padding:'20px 22px'}}>
+     <div style={{background:'var(--danger-soft)',border:'1px solid var(--danger-line)',borderRadius:12,padding:'14px 16px',marginBottom:20,display:'flex',gap:12}}>
+      <span style={{color:'var(--danger)',marginTop:1}}><Ico d={I.warn} s={18}/></span>
+      <div><div style={{fontWeight:600,fontSize:13.5,color:'#991B1B'}}>{inc.sev} / Intrusion tier matched</div>
+       <p style={{fontSize:12.5,color:'#B45454',marginTop:4,lineHeight:1.6}}>Reversible actions have executed. Irreversible, facility-impacting actions are held pending your decision.</p></div>
+     </div>
+
+     <div style={{fontSize:13,fontWeight:600,marginBottom:11}}>Executed automatically</div>
+     {inc.taken.map((a,i)=>
+      <div key={i} className="row" style={{gap:10,padding:'9px 12px',border:'1px solid var(--line)',borderRadius:9,marginBottom:7,background:'#fff'}}>
+       <span style={{color:'var(--brand)'}}><Ico d={I.ok} s={15}/></span>
+       <span style={{flex:1,fontSize:13}}>{a}</span>
+       <span className="mono" style={{fontSize:10.5,color:'var(--t3)'}}>done</span></div>)}
+
+     <div style={{fontSize:13,fontWeight:600,margin:'18px 0 11px'}} {...A('4 · Held actions are the human-in-the-loop boundary')}>Held for your approval</div>
+     {inc.held.map((a,i)=>
+      <div key={i} className="row" style={{gap:10,padding:'9px 12px',border:'1px solid #FDE9C8',borderRadius:9,marginBottom:7,background:'var(--warn-soft)'}}>
+       <span style={{color:'var(--warn)'}}><Ico d={I.pause} s={14}/></span>
+       <span style={{flex:1,fontSize:13,color:'#92400E'}}>{a}</span>
+       <span className="mono" style={{fontSize:10.5,color:'var(--warn)'}}>held</span></div>)}
+
+     <div style={{background:'var(--info-soft)',border:'1px solid #BFDBFE',borderRadius:10,padding:'12px 14px',marginTop:18,fontSize:12.5,color:'#1E40AF',lineHeight:1.65}}>
+      <b>Policy basis (D3):</b> {inc.sev} severity, no valid authorization, and an irreversible action in the selected tier together meet the escalation condition.</div>
+    </div>
+
+    <div>
+     <div className="card" style={{padding:'20px 22px',marginBottom:16}}>
+      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>Your decision</div>
+      <p style={{fontSize:12.5,color:'var(--t2)',marginBottom:15,lineHeight:1.6}}>Approve executes the held actions. Override lets you substitute your own.</p>
+      <button className="btn btn-primary" style={{width:'100%',marginBottom:9}} onClick={()=>decide(inc,'approve','Approved as proposed')}>
+       <Ico d={I.ok} s={16}/>Approve response</button>
+      <button className="btn btn-blue" style={{width:'100%',marginBottom:9}} onClick={()=>{setSel(inc);go('override')}}>Override with alternate actions</button>
+      <button className="btn btn-ghost" style={{width:'100%'}} onClick={()=>decide(inc,'dismiss','Supervisor judged this a false alarm')}>
+       <Ico d={I.x} s={15}/>Dismiss as false alarm</button>
+     </div>
+     <div className="card" style={{padding:'16px 20px'}}>
+      <div className="row" style={{gap:8,marginBottom:8,color:'var(--warn)'}}><Ico d={I.clock} s={15}/>
+       <span style={{fontSize:12.5,fontWeight:600,color:'var(--t1)'}}>SLA window: 60 seconds</span></div>
+      <p style={{fontSize:12,color:'var(--t2)',lineHeight:1.65}}>If no supervisor responds in time, the agent executes the safest policy default and records that the timeout path was used.</p>
+     </div>
+    </div>
+   </div>
+  </Shell>)}
+
+ /* ============ OVERRIDE ============ */
+ if(scr==='override'&&sel)return(
+  <Shell title="Override response" sub={sel.id+' · substitute the agent\u2019s proposed actions'} exhibit="EXHIBIT 5.6 · OVERRIDE AND APPROVAL"
+   action={<button className="btn btn-ghost" onClick={()=>go('response')}><Ico d={I.back} s={15}/>Back</button>}>
+   <div className="g2" style={{display:'grid',gridTemplateColumns:'1.6fr 1fr',gap:18}}>
+    <div className="card" style={{padding:'20px 22px'}}>
+     <div style={{fontSize:13,fontWeight:600,marginBottom:12}}>Select the actions to run instead</div>
+     {['Keep Dock 3 locked, hold all other actions','Sound local Zone D alarm only','Dispatch on-site guard without facility alarm','Escalate to facility manager before any action'].map((a,i)=>
+      <label key={i} className="row" style={{gap:11,padding:'11px 13px',border:'1px solid var(--line)',borderRadius:10,marginBottom:8,cursor:'pointer',fontSize:13}}>
+       <input type="checkbox" defaultChecked={i<2} style={{width:15,height:15,accentColor:'var(--brand)'}}/>{a}</label>)}
+     <div style={{fontSize:13,fontWeight:600,margin:'18px 0 8px'}}>Reason for override <span style={{color:'var(--danger)'}}>*</span></div>
+     <textarea className="field" rows={4} value={reason} onChange={e=>setReason(e.target.value)}
+      placeholder="Example: contractor crew is scheduled in the adjacent bay; a facility alarm would trigger an unnecessary full stoppage."
+      style={{resize:'vertical',lineHeight:1.6}}/>
+     <p style={{fontSize:11.5,color:'var(--t3)',marginTop:8}}>Required. The reason is written to the decision record and audited against override patterns.</p>
+    </div>
+    <div>
+     <div className="card" style={{padding:'20px 22px',marginBottom:16}}>
+      <div style={{fontSize:13,fontWeight:600,marginBottom:12}}>What happens next</div>
+      <p style={{fontSize:12.5,color:'var(--t2)',lineHeight:1.7,marginBottom:16}}>Your revised actions route back through the response center so they execute and are re-verified. The original recommendation and your reason are both preserved in the report.</p>
+      <button className="btn btn-primary" style={{width:'100%',opacity:reason.trim()?1:.45}} disabled={!reason.trim()}
+       onClick={()=>reason.trim()&&decide(sel,'override',reason.trim())}>Apply override</button>
+      {!reason.trim()&&<p style={{fontSize:11.5,color:'var(--t3)',textAlign:'center',marginTop:9}}>Enter a reason to continue</p>}
+     </div>
+    </div>
+   </div>
+  </Shell>);
+
+ /* ============ ESCALATIONS ============ */
+ if(scr==='escalations')return(
+  <Shell title="Escalations" sub="Agent process 3.0 — incidents routed for a human decision" exhibit="EXHIBIT 5.7 · ESCALATION QUEUE">
+   {pending.length===0
+    ?<div className="card" style={{padding:52,textAlign:'center'}}>
+      <div style={{color:'var(--brand)',marginBottom:12,display:'inline-block'}}><Ico d={I.ok} s={30}/></div>
+      <div style={{fontSize:16,fontWeight:600}}>Queue is clear</div>
+      <p style={{color:'var(--t2)',fontSize:13.5,marginTop:6}}>Nothing is waiting on a human decision. The agent is handling events within policy.</p>
+      <button className="btn btn-ghost" style={{marginTop:18}} onClick={()=>go('history')}>Review decision history</button></div>
+    :pending.map(x=>
+     <div key={x.id} className="card" style={{padding:'20px 22px',marginBottom:16,borderColor:'var(--danger-line)'}}>
+      <div className="row" style={{justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:10}}>
+       <div><span className="pill" style={{background:'var(--danger-soft)',color:'var(--danger)'}}>Requires approval</span>
+        <div style={{fontSize:16,fontWeight:600,marginTop:8}}>{x.id} · {x.type}</div>
+        <div className="mono" style={{fontSize:11.5,color:'var(--t3)',marginTop:3}}>{x.zone} · {x.time} · confidence {x.conf.toFixed(2)}</div></div>
+       <Sev s={x.sev}/></div>
+      <div style={{background:'var(--bg)',borderRadius:10,padding:'13px 15px',fontSize:12.5,color:'var(--t2)',lineHeight:1.65,marginBottom:16}}>
+       <b style={{color:'var(--t1)'}}>Why this escalated: </b>{x.held.length} proposed actions are irreversible and facility-impacting. Under the Critical tier every such action requires human approval before it runs.</div>
+      <div className="g2" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:18}}>
+       <div><div style={{fontSize:12,fontWeight:600,marginBottom:8}}>Already executed</div>
+        {x.taken.map((a,i)=><div key={i} className="row" style={{gap:8,fontSize:12.5,color:'var(--t2)',marginBottom:6}}>
+         <span style={{color:'var(--brand)'}}><Ico d={I.ok} s={13}/></span>{a}</div>)}</div>
+       <div><div style={{fontSize:12,fontWeight:600,marginBottom:8}}>Held pending your decision</div>
+        {x.held.map((a,i)=><div key={i} className="row" style={{gap:8,fontSize:12.5,color:'#92400E',marginBottom:6}}>
+         <span style={{color:'var(--warn)'}}><Ico d={I.pause} s={13}/></span>{a}</div>)}</div>
+      </div>
+      <div className="row" style={{gap:10,flexWrap:'wrap'}}>
+       <button className="btn btn-primary" onClick={()=>decide(x,'approve','Approved as proposed')}><Ico d={I.ok} s={16}/>Approve</button>
+       <button className="btn btn-blue" onClick={()=>{setSel(x);go('override')}}>Override</button>
+       <button className="btn btn-ghost" onClick={()=>{setSel(x);go('detail')}}>Open full detail</button>
+       <button className="btn btn-ghost" style={{marginLeft:'auto'}} onClick={()=>decide(x,'dismiss','Supervisor judged this a false alarm')}>Dismiss</button>
+      </div>
+     </div>)}
+  </Shell>);
+
+ /* ============ REPORT ============ */
+ if(scr==='report'){
+  const r=sel&&sel.outcome?sel:ev.find(x=>x.outcome)||ev[1];
+  const out=r.outcome||'approve';
+  return(
+  <Shell title="Incident report" sub="Agent process 4.0 — generated automatically and archived to D2" exhibit="EXHIBIT 5.8 · INCIDENT REPORT"
+   action={<button className="btn btn-ghost" onClick={()=>go('dash')}><Ico d={I.back} s={15}/>Dashboard</button>}>
+   <div style={{background:'var(--brand-soft)',border:'1px solid #BBF0DA',borderRadius:12,padding:'13px 16px',marginBottom:18,display:'flex',gap:12}}>
+    <span style={{color:'var(--brand-dark)',marginTop:1}}><Ico d={I.ok} s={17}/></span>
+    <div><div style={{fontSize:13.5,fontWeight:600,color:'var(--brand-dark)'}}>Report filed and stakeholders notified</div>
+     <div style={{fontSize:12.5,color:'#0A6B4A',marginTop:2}}>{r.id} archived to the incident log for audit and OSHA recordkeeping.</div></div>
+   </div>
+
+   <div className="card" style={{padding:'26px 28px'}}>
+    <div style={{paddingBottom:18,borderBottom:'2px solid var(--line)',marginBottom:20}}>
+     <div className="mono" style={{fontSize:10.5,letterSpacing:'.1em',color:'var(--t3)'}}>GUARDIANAI · INCIDENT REPORT</div>
+     <div style={{fontSize:22,fontWeight:600,letterSpacing:'-.02em',margin:'6px 0 16px'}}>{r.id} — {r.type}</div>
+     <div className="g4" style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16}}>
+      {[['Zone',r.zone],['Severity',r.sev],['Confidence',r.conf.toFixed(2)],['Outcome',out==='approve'?'Approved':out==='override'?'Overridden':'Dismissed']].map(([k,v])=>
+       <div key={k}><div style={{fontSize:11.5,color:'var(--t3)',marginBottom:4}}>{k}</div>
+        <div style={{fontSize:13.5,fontWeight:500,color:k==='Severity'?SEV[r.sev].c:'var(--t1)'}}>{v}</div></div>)}
+     </div>
+    </div>
+
+    <div style={{fontSize:14,fontWeight:600,marginBottom:14}}>Timeline</div>
+    {[['09:41:22','Detection','Motion detected in restricted zone against the D1 baseline','ok'],
+      ['09:41:23','Classification','Classified as '+r.type.toLowerCase()+' at confidence '+r.conf.toFixed(2),'ok'],
+      ['09:41:24','Autonomous response','Reversible actions executed within the matched policy tier','ok'],
+      ['09:41:25','Escalation','Irreversible actions held and routed to supervisor','hold'],
+      [r.decidedAt||'09:41:47','Human decision',(out==='approve'?'Supervisor approved the proposed response':out==='override'?'Supervisor overrode the response — '+r.reason:'Supervisor dismissed as false alarm')+' · Krish Kukreti','human'],
+      ['09:41:48','Execution',out==='dismiss'?'No response executed; event flagged for model review':'Remaining actions executed and verified','ok'],
+      ['09:42:03','Resolution','Incident closed, report archived to D2, baseline refined','ok']].map(([t,h,b,k],i)=>
+     <div key={i} className={'tl '+(k==='hold'?'hold':k==='human'?'human':'')}>
+      <div className="row" style={{gap:11,flexWrap:'wrap'}}>
+       <span className="mono" style={{fontSize:11.5,color:'var(--t3)',minWidth:56}}>{t}</span>
+       <span style={{fontSize:13.5,fontWeight:600}}>{h}</span></div>
+      <div style={{fontSize:12.5,color:'var(--t2)',marginTop:3,lineHeight:1.6}}>{b}</div></div>)}
+
+    <div className="g2" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:22,margin:'22px 0',paddingTop:20,borderTop:'1px solid var(--line)'}}>
+     <div><div style={{fontSize:13,fontWeight:600,marginBottom:10}}>Actions taken by the agent</div>
+      {r.taken.map((a,i)=><div key={i} className="row" style={{gap:8,fontSize:12.5,color:'var(--t2)',marginBottom:7,alignItems:'flex-start'}}>
+       <span style={{color:'var(--brand)',marginTop:2}}><Ico d={I.ok} s={13}/></span>{a}</div>)}</div>
+     <div><div style={{fontSize:13,fontWeight:600,marginBottom:10}}>Human decision record</div>
+      <div style={{fontSize:12.5,color:'var(--t2)',lineHeight:1.75}}>
+       <div><b style={{color:'var(--t1)'}}>Decision:</b> {out==='approve'?'Approve':out==='override'?'Override':'Dismiss'}</div>
+       <div><b style={{color:'var(--t1)'}}>Supervisor:</b> Krish Kukreti</div>
+       <div><b style={{color:'var(--t1)'}}>Recorded at:</b> {r.decidedAt||'09:41:47'}</div>
+       <div style={{marginTop:6}}><b style={{color:'var(--t1)'}}>Reason:</b> {r.reason||'Approved as proposed'}</div></div></div>
+    </div>
+
+    <div style={{background:'var(--bg)',borderRadius:10,padding:'14px 16px',marginBottom:20}}>
+     <div style={{fontSize:13,fontWeight:600,marginBottom:8}}>Prevention recommendation</div>
+     <p style={{fontSize:12.5,color:'var(--t2)',lineHeight:1.65}}>Three of the last ten events at this zone follow the same shortcut path between racking and the dock apron. Recommend physical signage and a floor-marking review at the Dock 3 apron entrance.</p>
+    </div>
+
+    <div style={{fontSize:13,fontWeight:600,marginBottom:8}}>Supervisor notes</div>
+    <textarea className="field" rows={3} value={note} onChange={e=>setNote(e.target.value)} placeholder="Add any context for the compliance record" style={{resize:'vertical',marginBottom:16,lineHeight:1.6}}/>
+
+    <div className="row" style={{gap:10,flexWrap:'wrap'}}>
+     <button className="btn btn-primary" onClick={()=>setToast('Report exported as PDF.')}><Ico d={I.dl} s={15}/>Export report</button>
+     <button className="btn btn-ghost" onClick={()=>setToast('Shared with operations and safety stakeholders.')}>Share with stakeholders</button>
+     <button className="btn btn-ghost" style={{marginLeft:'auto'}} onClick={()=>go('monitor')}>Return to live monitor</button>
+    </div>
+   </div>
+  </Shell>)}
+
+ /* ============ HISTORY ============ */
+ if(scr==='history'){
+  const rows=ev.filter(x=>(fz==='All zones'||x.zone===fz)&&(fs==='All severities'||x.sev===fs)&&(x.id+x.type+x.zone).toLowerCase().includes(q.toLowerCase()));
+  return(
+  <Shell title="Incidents and history" sub="Searchable archive of every event, action, and human decision" exhibit="EXHIBIT 5.9 · INCIDENT HISTORY">
+   <div className="card" style={{overflow:'hidden',marginBottom:18}}>
+    <div className="row" style={{gap:10,padding:'14px 18px',borderBottom:'1px solid var(--line)',flexWrap:'wrap'}}>
+     <input className="field" placeholder="Search incident ID, type, or zone" value={q} onChange={e=>setQ(e.target.value)} style={{flex:1,minWidth:190,fontSize:13}}/>
+     <select className="field" value={fz} onChange={e=>setFz(e.target.value)} style={{width:'auto',fontSize:13}}>
+      {['All zones',...ZONES.map(z=>z.n)].map(z=><option key={z}>{z}</option>)}</select>
+     <select className="field" value={fs} onChange={e=>setFs(e.target.value)} style={{width:'auto',fontSize:13}}>
+      {['All severities','Critical','High','Medium','Low'].map(s=><option key={s}>{s}</option>)}</select>
+    </div>
+    {rows.length===0
+     ?<div style={{padding:40,textAlign:'center',color:'var(--t2)',fontSize:13.5}}>No incidents match these filters. Clear the search to see all records.</div>
+     :rows.map((x,i)=>
+      <div key={x.id} onClick={()=>{setSel(x);go('detail')}} className="row" style={{gap:14,padding:'13px 18px',borderBottom:i<rows.length-1?'1px solid var(--line)':'none',cursor:'pointer'}}>
+       <div style={{flex:1,minWidth:0}}>
+        <div className="row" style={{gap:9,flexWrap:'wrap'}}>
+         <span className="mono" style={{fontSize:11.5,color:'var(--t2)'}}>{x.id}</span>
+         <span style={{fontSize:13.5,fontWeight:500}}>{x.type}</span></div>
+        <div className="mono" style={{fontSize:11,color:'var(--t3)',marginTop:3}}>{x.zone} · {x.time}</div></div>
+       <Sev s={x.sev}/>
+       <span style={{fontSize:11.5,color:'var(--t2)',minWidth:78,textAlign:'right',textTransform:'capitalize'}}>{x.state}</span>
+      </div>)}
+   </div>
+
+   <div className="card" style={{padding:'18px 20px'}} {...A('5 · Every decision is written to an immutable audit trail')}>
+    <div style={{fontSize:14,fontWeight:600,marginBottom:4}}>Decision audit trail</div>
+    <p style={{fontSize:12.5,color:'var(--t2)',marginBottom:14}}>Override patterns are reviewed to detect rubber-stamping, per the accountability requirement.</p>
+    {log.length===0
+     ?<div style={{fontSize:12.5,color:'var(--t3)',padding:'14px 0'}}>No decisions recorded in this session yet. Approve or dismiss an escalation and it will appear here.</div>
+     :log.map((l,i)=>
+      <div key={i} className="row" style={{gap:12,padding:'10px 0',borderBottom:i<log.length-1?'1px solid var(--line)':'none',flexWrap:'wrap'}}>
+       <span className="mono" style={{fontSize:11.5,color:'var(--t3)',minWidth:62}}>{l.at}</span>
+       <span className="mono" style={{fontSize:11.5,color:'var(--t2)',minWidth:66}}>{l.id}</span>
+       <span className="pill" style={{background:l.kind==='approve'?'var(--brand-soft)':l.kind==='override'?'var(--info-soft)':'var(--bg)',color:l.kind==='approve'?'var(--brand-dark)':l.kind==='override'?'#1D4ED8':'var(--t2)',textTransform:'capitalize'}}>{l.kind}</span>
+       <span style={{flex:1,fontSize:12.5,color:'var(--t2)',minWidth:150}}>{l.txt}</span>
+       <span style={{fontSize:11.5,color:'var(--t3)'}}>{l.by}</span></div>)}
+   </div>
+  </Shell>)}
+
+ /* ============ POLICIES ============ */
+ if(scr==='policies')return(
+  <Shell title="Response policies" sub="The D3 rules the agent reads when it selects a tier and decides whether to escalate" exhibit="EXHIBIT 5.10 · RESPONSE POLICIES">
+   <div {...A('6 · Editing a tier changes agent behaviour on the next event')} style={{marginBottom:18}}>
+    {POLICIES.map(p=>
+     <div key={p.t} className="card" style={{padding:'18px 20px',marginBottom:12}}>
+      <div className="row" style={{justifyContent:'space-between',gap:12,flexWrap:'wrap',marginBottom:13}}>
+       <div className="row" style={{gap:11}}>
+        <span style={{width:9,height:9,borderRadius:5,background:p.c}}/>
+        <div><div style={{fontSize:14.5,fontWeight:600}}>{p.t} tier</div>
+         <div style={{fontSize:12.5,color:'var(--t2)',marginTop:2}}>{p.d}</div></div></div>
+       <button className="btn btn-ghost" style={{padding:'7px 14px',fontSize:12.5}} onClick={()=>setToast(p.t+' tier opened for editing. Changes are version-logged.')}>Edit</button></div>
+      <div className="g2" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,paddingTop:13,borderTop:'1px solid var(--line)'}}>
+       <div><div style={{fontSize:11.5,color:'var(--t3)',marginBottom:4}}>Triggers when</div>
+        <div style={{fontSize:12.5,fontWeight:500}}>{p.trig}</div></div>
+       <div><div style={{fontSize:11.5,color:'var(--t3)',marginBottom:4}}>Escalates to supervisor</div>
+        <div style={{fontSize:12.5,fontWeight:500}}>{p.esc}</div></div></div>
+     </div>)}
+   </div>
+   <div className="card" style={{padding:'18px 20px'}}>
+    <div style={{fontSize:13.5,fontWeight:600,marginBottom:12}}>Escalation thresholds</div>
+    {[['Escalation SLA window','60 seconds'],['Maximum routine-event escalation rate','10%'],['Unnecessary full-zone stoppages','under 5% of agent actions'],['Timeout behaviour','execute safest policy default and record']].map(([k,v],i)=>
+     <div key={i} className="row" style={{justifyContent:'space-between',padding:'9px 0',borderBottom:i<3?'1px solid var(--line)':'none',fontSize:12.5,gap:12}}>
+      <span style={{color:'var(--t2)'}}>{k}</span><span className="mono" style={{fontWeight:500,fontSize:11.5,textAlign:'right'}}>{v}</span></div>)}
+    <p style={{fontSize:11.5,color:'var(--t3)',marginTop:14,lineHeight:1.65}}>Saving requires confirmation and every change is version-logged. Edits here change how the agent behaves in the response center and the escalation queue.</p>
+   </div>
+  </Shell>);
+
+ return null;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
+
